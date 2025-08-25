@@ -3,54 +3,37 @@ import datetime
 import os
 from dotenv import load_dotenv
 
-# Загружаем переменные из .env
 load_dotenv()
 
 class VKStats:
-    def __init__(self):
-        self.vk_api_key = os.getenv("VK_API_KEY")
-        self.group_id = os.getenv("GROUP_ID")
+    def __init__(self, vk_api_key: str | None = None, group_id: str | None = None):
+        self.vk_api_key = vk_api_key or os.getenv("VK_API_KEY")
+        self.group_id = group_id or os.getenv("GROUP_ID")
+        if not self.vk_api_key or not self.group_id:
+            raise ValueError("VK_API_KEY или GROUP_ID не заданы (ни аргументом, ни в .env).")
 
     def get_stats(self, start_date: str, end_date: str, fmt: str = "%Y-%m-%d"):
         url = 'https://api.vk.com/method/stats.get'
-
-        # Парсим даты
-        start_dt = datetime.datetime.strptime(start_date, fmt)
-        end_dt = datetime.datetime.strptime(end_date, fmt)
-
-        # Привязываем к UTC и переводим в unixtime (целые секунды)
-        start_dt = start_dt.replace(tzinfo=datetime.timezone.utc)
-        end_dt = end_dt.replace(tzinfo=datetime.timezone.utc)
-
-        start_unix_time = int(start_dt.timestamp())
-        end_unix_time = int(end_dt.timestamp())
-
+        start_dt = datetime.datetime.strptime(start_date, fmt).replace(tzinfo=datetime.timezone.utc)
+        end_dt = datetime.datetime.strptime(end_date, fmt).replace(tzinfo=datetime.timezone.utc)
         params = {
             'access_token': self.vk_api_key,
             'v': '5.236',
             'group_id': self.group_id,
-            'timestamp_from': start_unix_time,
-            'timestamp_to': end_unix_time
+            'timestamp_from': int(start_dt.timestamp()),
+            'timestamp_to': int(end_dt.timestamp())
         }
-        response = requests.get(url, params=params).json()
-        if 'error' in response:
-            raise Exception(response['error']['error_msg'])
-
-        data = response.get('response', [])
+        resp = requests.get(url, params=params).json()
+        if 'error' in resp:
+            raise Exception(resp['error']['error_msg'])
+        data = resp.get('response', [])
         return data[0] if data else {}
 
     def get_followers(self) -> int:
-        url = 'https://api.vk.com/method/groups.getMembers'
-        params = {
-            'access_token': self.vk_api_key,
-            'v': '5.236',
-            'group_id': self.group_id
-        }
-        response = requests.get(url, params=params).json()
-        if 'error' in response:
-            raise Exception(response['error']['error_msg'])
-        return response['response']['count']
-
-if __name__ == "__main__":
-    followers = VKStats().get_followers()
-    print(followers)
+        resp = requests.get(
+            'https://api.vk.com/method/groups.getMembers',
+            params={'access_token': self.vk_api_key, 'v': '5.236', 'group_id': self.group_id}
+        ).json()
+        if 'error' in resp:
+            raise Exception(resp['error']['error_msg'])
+        return resp['response']['count']

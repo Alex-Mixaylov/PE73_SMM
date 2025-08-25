@@ -1,33 +1,50 @@
 from openai import OpenAI
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
-api_key = os.getenv('openai_key')
 
 class PostGenerator:
-    def __init__(self, openai_key, tone, topic):
-        self.client = OpenAI(api_key=openai_key)
+    """
+    Генератор текста поста для соцсетей.
+    Если openai_key не передан, берётся из переменной окружения `openai_key`.
+    """
+    def __init__(self, openai_key: str | None, tone: str, topic: str):
+        key = openai_key or os.getenv("openai_key")
+        if not key:
+            raise ValueError("openai_key не задан (ни аргументом, ни в переменных окружения).")
+        self.client = OpenAI(api_key=key)
         self.tone = tone
         self.topic = topic
 
-    def generate_post(self):
-        response = self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Ты высококвалифицированный SMM специалист, который будет помогать в генерации текста для постов для социальной сети VK с заданной тебе тематикой и заданным тоном."},
-                {"role": "user", "content": f"Сгенерируй пост для соцсетей с темой {self.topic}, используя тон: {self.tone}. Добавь не более двух эмоджи в тексте, при этом никогда не используй эмоджи радуга."}
-            ]
-        )
-        return response.choices[0].message.content
-
-    def generate_post_image_description(self):
-        response = self.client.chat.completions.create(
+    def generate_post(self) -> str:
+        resp = self.client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system",
-                 "content": "Ты ассистент, который составит промпт для нейросети, которая будет генерировать изображения. Ты должен составлять промпт на заданную тематику."},
-                {"role": "user", "content": f"Сгенерируй изображение для соцсетей с темой {self.topic}"}
+                 "content": (
+                    "Ты высококвалифицированный SMM-специалист, который помогает генерировать тексты "
+                    "для постов во ВКонтакте с заданной тематикой и тоном."
+                 )},
+                {"role": "user",
+                 "content": (
+                    f"Сгенерируй пост для соцсетей на тему: {self.topic}. "
+                    f"Используй тон: {self.tone}. "
+                    "Добавь не более двух эмодзи в тексте и никогда не используй радугу."
+                 )}
             ]
         )
-        return response.choices[0].message.content
+        return resp.choices[0].message.content
+
+    def generate_post_image_description(self) -> str:
+        resp = self.client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system",
+                 "content": (
+                    "Ты ассистент, который формирует чёткий промпт для модели генерации изображений "
+                    "по заданной тематике."
+                 )},
+                {"role": "user",
+                 "content": f"Сформируй промпт для изображения к посту на тему: {self.topic}."}
+            ]
+        )
+        return resp.choices[0].message.content
